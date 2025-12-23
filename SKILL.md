@@ -335,17 +335,20 @@ After publishing to PyPI, users can use the simple configuration:
 # [project]
 # version = "0.2.0"
 
-# 2. Build the new version
+# 2. Clean old build
+rm -rf dist/ 
+
+# 32. Build the new version
 uv build
 
-# 3. Publish to PyPI
+# 4. Publish to PyPI
 uv publish --token "your-pypi-token"
 
-# 4. Create and push Git tag
+# 5. Create and push Git tag
 git tag v0.2.0
 git push origin v0.2.0
 
-# 5. Create GitHub release (optional but recommended)
+# 6. Create GitHub release (optional but recommended)
 ````
 
 ### Semantic Versioning
