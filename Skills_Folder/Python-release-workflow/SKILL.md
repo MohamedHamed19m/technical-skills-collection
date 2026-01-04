@@ -645,6 +645,64 @@ git push origin main --tags
 ```
 
 ---
+### 🛠️ Troubleshooting: GitHub Action "Repository Not Found" Errors
+
+#### **The Problem**
+When using third-party GitHub Actions (e.g., `anton-palan/changelog-reader-action` or `minddocdev/changelog-reader-action`) to extract release notes, the workflow fails with an `Error: Unable to resolve action ..., repository not found`.
+- **Cause**: The external repository was renamed, deleted, moved to a different organization, or is currently private/unavailable.
+- **Impact**: The entire release pipeline stops, preventing PyPI publishing and GitHub Release creation.
+
+#### **The Solution: Native Extraction (The "Gold Standard")**
+Instead of relying on external wrappers, use native Shell commands and the official GitHub CLI. This removes all external dependencies and is 100% reliable as long as your `CHANGELOG.md` follows the **Keep a Changelog** format.
+
+
+
+**1. Reliable Changelog Extraction (Bash/Ubuntu)**
+Replace the third-party step with a `sed` command to surgically extract the notes for the current version:
+```yaml
+- name: Extract Release Notes
+  id: extract-notes
+  run: |
+    VERSION="${{ steps.get_version.outputs.VERSION }}"
+    # Extracts everything between the target version header and the next version header
+    # Targets the exact format: ## [X.Y.Z]
+    sed -n "/## \[$VERSION\]/,/## \[/p" CHANGELOG.md | sed '$d' > latest_notes.md
+2. Official GitHub CLI for Releases Use the gh tool (pre-installed on all GitHub runners) with the --notes-file flag to handle multi-line text safely:
+
+YAML
+
+- name: Create/Update Release
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  run: |
+    # Use 'gh release view' to check for existence before creating
+    if gh release view "${{ github.ref_name }}" >/dev/null 2>&1; then
+      echo "Updating existing release..."
+      gh release edit "${{ github.ref_name }}" --notes-file latest_notes.md
+    else
+      echo "Creating new release..."
+      gh release create "${{ github.ref_name }}" \
+        --title "Release ${{ github.ref_name }}" \
+        --notes-file latest_notes.md
+    fi
+    # Upload assets to the release
+    gh release upload "${{ github.ref_name }}" ./dist/* --clobber
+🤖 AI Instructions for Release Management
+When managing releases for this repository, prioritize these principles:
+
+Prioritize Native Tools: Never suggest a third-party "Changelog Reader" action if the same can be achieved with a one-line sed command. Native commands are immune to "Repository Not Found" errors.
+
+Use Notes Files: Always pass release notes via a file (--notes-file) rather than an environment variable string. This avoids shell-escaping bugs with special characters (like quotes or backticks) in the changelog.
+
+Strict Header Matching: Ensure the version extracted from the Git Tag (e.g., 2.1.1) matches the bracketed version in CHANGELOG.md (e.g., ## [2.1.1]) exactly.
+
+Tag Synchronization: If a release fails, do not just re-run the job. Verify if the tag needs to be deleted and re-pushed to ensure the runner uses the latest release.yml code from main.
+
+Local Verification Command (PowerShell): Test the extraction logic locally before pushing:
+
+PowerShell
+
+$version = "2.1.1"; $c = Get-Content "CHANGELOG.md" -Raw; if ($c -match "(?s)## \[$version\].*?(?=\n## \[|\Z)") { $matches[0] }
 
 ## 🐛 Troubleshooting
 
